@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synonym Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #title {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        #words-container {
+            position: relative;
+            min-height: 30vh;
+            min-width: 25vh;
+            background-color: #f8f9fa;
+            border: 2px solid #007BFF;
+            border-radius: 8px;
+            flex-direction: column;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        #reset-button {
+            position: absolute;
+            top: 0px;
+            right: -15px;
+            width: 10px;
+            height: 10px;
+            padding: 1px;
+            font-size: 10px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+
+        #reset-button:hover {
+            transform: scale(1.2);
+        }
+
+        #current-word {
+            background-color: #007BFF;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-size: 1.5rem;
+        }
+
+        .word {
+            background-color: #e9ecef;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .word:hover {
+            background-color: #ced4da;
+        }
+
+        #timer {
+            text-align: center;
+            font-size: 16px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        #score {
+            font-size: 1.2rem;
+            color: #28a745;
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #28a745;
+            border-radius: 5px;
+            min-width: 25vh;
+            background-color: #f8f9fa;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        body, html {
+            height: 100%;
+        }
+
+        .full-height {
+            height: 100%;
+        }
+    </style>
+</head>
+<body onload="onPageLoad()">
+    <div class="container-fluid d-flex justify-content-center align-items-center flex-column full-height">
+        <div id="title">
+            <h2>Synonym Game</h2>
+            <p id="instructions"></p>
+        </div>
+        <div id="words-container">
+            <button id="reset-button">&#x21A9;</button>
+            <div id="current-word"></div>
+        </div>
+        <div id="timer">0s</div>
+        <div id="score"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./js/synonyms.js"></script>
+    <script>
+        const numberOfSynonyms = 2;
+        const numberOfOtherWords = 3;
+        let allWords = [];
+        let timeElapsed = 0;
+        let timerInterval = null;
+        let score = 0;
+        let total = 0;
+
+        // Setup initial elements and first word
+        function onPageLoad() {
+            const instructionsElement = document.getElementById('instructions');
+            instructionsElement.textContent = `Find the ${numberOfSynonyms} synonyms for the given word`
+
+            const resetButton = document.getElementById('reset-button');
+            resetButton.addEventListener('click', reset);
+
+            loadAllWords();
+            displayWord();
+        }
+
+        // Gather list of all words upfront
+        function loadAllWords() {
+            wordSynonyms.forEach(wordSynonym => {
+                allWords.push(wordSynonym[0]);
+                allWords.push(...wordSynonym[1]);
+            });
+        }
+
+        // Resets the game
+        function reset() {
+            score = 0;
+            total = 0;
+            stopTimer();
+            displayWord();
+            displayScore();
+        }
+
+        // Show current word and possible synonyms
+        function displayWord() {
+            // Display next word
+            const currentWord = getRandomWord();
+            const currentWordDiv = document.getElementById('current-word');
+            currentWordDiv.innerText = currentWord[0];
+
+            // Display random synonyms and other random words
+            const containerDiv = document.getElementById('words-container');
+            containerDiv.querySelectorAll('.word').forEach(word => word.remove());
+            let currentWords = [...getRandomSynonyms(currentWord), ...getRandomWords(currentWord)];
+            currentWords = currentWords.sort(() => 0.5 - Math.random());
+            currentWords.forEach(word => {
+                const wordDiv = document.createElement('div');
+                wordDiv.className = 'word';
+                if (currentWord[1].includes(word)) {
+                    wordDiv.setAttribute('data-valid-synonym', 'true');
+                } else {
+                    wordDiv.setAttribute('data-valid-synonym', 'false');
+                }
+                wordDiv.innerText = word;
+                wordDiv.addEventListener('click', handleWordClick);
+                containerDiv.appendChild(wordDiv);
+            });
+
+            startTimer();
+        }
+
+        // Starts the timer each round
+        function startTimer() {
+            const timerElement = document.getElementById('timer');
+            timeElapsed = 0;
+            if (timerInterval !== null) {
+                clearInterval(timerInterval);
+            }
+            timerInterval = setInterval(() => {
+                timeElapsed++;
+                timerElement.textContent = `${timeElapsed}s`;
+            }, 1000);
+        }
+
+        // Stops the timer immediately
+        function stopTimer() {
+            const timerElement = document.getElementById('timer');
+            if (timerInterval !== null) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerElement.textContent = '0s';
+        }
+
+        // Determine if selection is correct or not and if we should go to the next word
+        function handleWordClick() {
+            const isValid = this.getAttribute('data-valid-synonym') === 'true';
+            if (isValid) {
+                this.style.backgroundColor = '#98FB98';
+                this.setAttribute('data-valid-choice', 'true');
+            } else {
+                this.style.backgroundColor = '#F08080';
+                this.setAttribute('data-valid-choice', 'false');
+            }
+
+            const { correct, incorrect } = getCounts();
+            // TODO: If more than n incorrect, then fail and move on
+            // TODO: Add a delay before moving to next word
+            // When correct, move to next word
+            if (correct === numberOfSynonyms) {
+                stopTimer();
+                if (incorrect === 0) {
+                    score++;
+                }
+                total++;
+                displayWord();
+            }
+            displayScore();
+        }
+
+        // Get count of correct and incorrect guesses
+        function getCounts() {
+            const wordDivs = document.querySelectorAll('.word');
+            let correct = 0;
+            let incorrect = 0;
+            wordDivs.forEach(option => {
+                if (option.getAttribute('data-valid-choice') === 'true') {
+                    correct++;
+                } else if (option.getAttribute('data-valid-choice') === 'false') {
+                    incorrect++;
+                }
+            });
+            return { correct, incorrect };
+        }
+
+        // Show score (if more than one question answered)
+        function displayScore() {
+            // TODO: Track average guesses and time per round to generate a score (not just # of perfect guesses)
+            const scoreDiv = document.getElementById('score');
+            if (total > 0) {
+                scoreDiv.style.display = 'block';
+                scoreDiv.innerText = `${score} / ${total} answered perfectly`;
+            } else {
+                scoreDiv.style.display = 'none';
+                scoreDiv.innerText = '';
+            }
+        }
+
+        // Get a random word from the list
+        function getRandomWord() {
+            // TODO: Avoid getting a recent selection
+            const index = Math.floor(Math.random() * wordSynonyms.length);
+            return wordSynonyms[index];
+        }
+
+        // Get list of n (numberOfSynonyms) random synonyms for current word
+        function getRandomSynonyms(currentWord) {
+            let synonyms = currentWord[1];
+            synonyms = synonyms.sort(() => 0.5 - Math.random());
+            return synonyms.slice(0, numberOfSynonyms);
+        }
+
+        // Get unique list of n (numberOfOtherWords) random words
+        function getRandomWords(currentWord) {
+            let words = [];
+            // Exclude current word and its synonyms
+            words = allWords.filter(word =>
+                word !== currentWord[0] && !currentWord[1].includes(word)
+            );
+            words = words.sort(() => 0.5 - Math.random());
+            // Get unique list using set
+            return [...new Set(words)].slice(0, numberOfOtherWords);
+        }
+    </script>
+</body>
+</html>
