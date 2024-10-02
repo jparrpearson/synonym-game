@@ -121,7 +121,8 @@
         let timeElapsed = 0;
         let timerInterval = null;
         let score = 0;
-        let total = 0;
+        let completed = 0;
+        const total = 10;
 
         // Setup initial elements and first word
         function onPageLoad() {
@@ -146,7 +147,7 @@
         // Resets the game
         function reset() {
             score = 0;
-            total = 0;
+            completed = 0;
             stopTimer();
             displayWord();
             displayScore();
@@ -180,6 +181,64 @@
             startTimer();
         }
 
+        // Determine if selection is correct or not and if we should go to the next word
+        function handleWordClick() {
+            // Stop when game ends
+            if (completed === total) {
+                return;
+            }
+
+            const isValid = this.getAttribute('data-valid-synonym') === 'true';
+            if (isValid) {
+                this.style.backgroundColor = '#98FB98';
+                this.setAttribute('data-valid-choice', 'true');
+            } else {
+                this.style.backgroundColor = '#F08080';
+                this.setAttribute('data-valid-choice', 'false');
+            }
+
+            const { correct, incorrect } = getCounts();
+            // TODO: Add a slight delay before moving to next word
+            // TODO: Show summary of words at end
+            // When correct, calculate score and move to next word
+            if (correct === numberOfSynonyms) {
+                stopTimer();
+                score += Math.round((correct * 10) - (incorrect * 5) + (100 / (timeElapsed + 0.1)));
+                completed++;
+                displayScore();
+                if (completed < total) {
+                    displayWord();
+                }
+            }
+        }
+
+        // Get count of correct and incorrect guesses
+        function getCounts() {
+            const wordDivs = document.querySelectorAll('.word');
+            let correct = 0;
+            let incorrect = 0;
+            wordDivs.forEach(option => {
+                if (option.getAttribute('data-valid-choice') === 'true') {
+                    correct++;
+                } else if (option.getAttribute('data-valid-choice') === 'false') {
+                    incorrect++;
+                }
+            });
+            return { correct, incorrect };
+        }
+
+        // Show score (if more than one question answered)
+        function displayScore() {
+            const scoreDiv = document.getElementById('score');
+            if (completed > 0) {
+                scoreDiv.style.display = 'block';
+                scoreDiv.innerText = `${score} points (${completed} / ${total})`;
+            } else {
+                scoreDiv.style.display = 'none';
+                scoreDiv.innerText = '';
+            }
+        }
+
         // Starts the timer each round
         function startTimer() {
             const timerElement = document.getElementById('timer');
@@ -201,60 +260,6 @@
                 timerInterval = null;
             }
             timerElement.textContent = '0s';
-        }
-
-        // Determine if selection is correct or not and if we should go to the next word
-        function handleWordClick() {
-            const isValid = this.getAttribute('data-valid-synonym') === 'true';
-            if (isValid) {
-                this.style.backgroundColor = '#98FB98';
-                this.setAttribute('data-valid-choice', 'true');
-            } else {
-                this.style.backgroundColor = '#F08080';
-                this.setAttribute('data-valid-choice', 'false');
-            }
-
-            const { correct, incorrect } = getCounts();
-            // TODO: If more than n incorrect, then fail and move on
-            // TODO: Add a delay before moving to next word
-            // When correct, move to next word
-            if (correct === numberOfSynonyms) {
-                stopTimer();
-                if (incorrect === 0) {
-                    score++;
-                }
-                total++;
-                displayWord();
-            }
-            displayScore();
-        }
-
-        // Get count of correct and incorrect guesses
-        function getCounts() {
-            const wordDivs = document.querySelectorAll('.word');
-            let correct = 0;
-            let incorrect = 0;
-            wordDivs.forEach(option => {
-                if (option.getAttribute('data-valid-choice') === 'true') {
-                    correct++;
-                } else if (option.getAttribute('data-valid-choice') === 'false') {
-                    incorrect++;
-                }
-            });
-            return { correct, incorrect };
-        }
-
-        // Show score (if more than one question answered)
-        function displayScore() {
-            // TODO: Track average guesses and time per round to generate a score (not just # of perfect guesses)
-            const scoreDiv = document.getElementById('score');
-            if (total > 0) {
-                scoreDiv.style.display = 'block';
-                scoreDiv.innerText = `${score} / ${total} answered perfectly`;
-            } else {
-                scoreDiv.style.display = 'none';
-                scoreDiv.innerText = '';
-            }
         }
 
         // Get a random word from the list
