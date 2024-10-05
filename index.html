@@ -96,9 +96,9 @@
         #score {
             background-color: #f8f9fa;
             font-size: 1.2em;
-            min-width: 300px;
+            min-width: 250px;
             padding: 10px;
-            width: 40vh;
+            width: 25vh;
         }
 
         #summary-container {
@@ -120,7 +120,6 @@
         .summary-list {
             border-top: 1px solid #6c757d;
             list-style-type: none;
-            margin: 10px;
             padding: 10px;
         }
     </style>
@@ -145,7 +144,7 @@
         const numberOfSynonyms = 2; // Number of synonyms to show
         const numberOfOtherWords = 3; //Number of other words to show
         let allWords = [];
-        let summaryWords = [];
+        let seenWords = [];
         let timeElapsed = 0;
         let totalTimeElapsed = 0;
         let timerInterval = null;
@@ -169,20 +168,29 @@
 
             // Display first word
             displayWord();
+            displayProgess();
             startTimer();
         }
 
         // Resets the game
         function reset() {
-            summaryWords = [];
-            score = 0;
+            const scoreElement = document.getElementById('score');
+            scoreElement.style.display = 'none';
+            scoreElement.innerText = '';
+
+            const containerElement = document.getElementById('summary-container');
+            containerElement.style.display = 'none';
+            containerElement.querySelectorAll('.summary-word').forEach(word => word.remove());
+
+            seenWords = [];
             totalTimeElapsed = 0;
+            score = 0;
             completed = 0;
-            restartTimer();
+
+            clearTimer();
             displayWord();
+            displayProgess();
             startTimer();
-            displayScore();
-            displaySummary();
         }
 
         // Show current word and possible synonyms
@@ -191,7 +199,7 @@
             const currentWord = getRandomWord();
             const currentWordElement = document.getElementById('current-word');
             currentWordElement.innerText = currentWord[0];
-            summaryWords.push(currentWord);
+            seenWords.push(currentWord);
 
             // Display random synonyms and other random words for selection
             const containerElement = document.getElementById('words-container');
@@ -201,11 +209,7 @@
             currentWords.forEach(word => {
                 const wordElement = document.createElement('div');
                 wordElement.className = 'word';
-                if (currentWord[1].includes(word)) {
-                    wordElement.setAttribute('data-valid-synonym', 'true');
-                } else {
-                    wordElement.setAttribute('data-valid-synonym', 'false');
-                }
+                wordElement.setAttribute('data-valid-synonym', currentWord[1].includes(word) ? 'true' : 'false');
                 wordElement.innerText = word;
                 wordElement.addEventListener('click', handleWordClick);
                 containerElement.appendChild(wordElement);
@@ -215,23 +219,20 @@
         // Determine if selection is correct or not and if we should go to the next word
         function handleWordClick(event) {
             const isValid = this.getAttribute('data-valid-synonym') === 'true';
-            if (isValid) {
-                this.style.backgroundColor = '#98FB98';
-                this.setAttribute('data-valid-choice', 'true');
-            } else {
-                this.style.backgroundColor = '#F08080';
-                this.setAttribute('data-valid-choice', 'false');
-            }
+            this.style.backgroundColor = isValid ? '#98FB98' : '#F08080';
+            this.setAttribute('data-valid-choice', isValid ? 'true' : 'false');
 
+            // When correct, move to next word or show final score
             const { correct, incorrect } = getCounts();
-            // When correct, calculate score and move to next word
             if (correct === numberOfSynonyms) {
-                restartTimer();
+                clearTimer();
                 score += Math.round((correct * 100) - (incorrect * 150) + (1000 / (timeElapsed + 0.1)));
                 totalTimeElapsed += timeElapsed;
                 completed++;
+                seenWords[completed - 1].push(incorrect === 0 ? "correct" : "incorrect");
                 if (completed < total) {
                    displayWord();
+                   displayProgess();
                    startTimer();
                 } else if (completed === total) {
                     stopTimer();
@@ -239,9 +240,9 @@
                     wordElements.forEach(element => {
                         element.removeEventListener('click', handleWordClick);
                     });
+                    displayScore();
                     displaySummary();
                 }
-                displayScore();
             }
         }
 
@@ -273,8 +274,8 @@
             }, 1000);
         }
 
-        // Restarts the timer
-        function restartTimer() {
+        // Clears the timer
+        function clearTimer() {
             const timerElement = document.getElementById('timer');
             if (timerInterval !== null) {
                 clearInterval(timerInterval);
@@ -293,41 +294,44 @@
             timerElement.textContent = '';
         }
 
-        // Show score (if more than one question answered)
-        function displayScore() {
+        // Show the current progress
+        function displayProgess() {
+            // Reuse score element
             const scoreElement = document.getElementById('score');
-            if (completed > 0) {
-                scoreElement.style.display = 'block';
-                scoreElement.innerText = `${score} points (${completed} / ${total})`;
-                if (completed === total) {
-                    scoreElement.innerText += `\nFinished in ${totalTimeElapsed}s`;
-                }
-            } else {
-                scoreElement.style.display = 'none';
-                scoreElement.innerText = '';
-            }
+            scoreElement.style.display = 'block';
+            scoreElement.innerText = `Round ${completed + 1} of ${total}`;
         }
 
+        // Show final score
+        function displayScore() {
+            const scoreElement = document.getElementById('score');
+            scoreElement.style.display = 'block';
+            scoreElement.innerText = `${score} points in ${totalTimeElapsed}s`;
+        }
+
+        // Show full list of seen words at the end
         function displaySummary() {
             const containerElement = document.getElementById('summary-container');
-            if (completed === total) {
-                containerElement.style.display = 'flex';
-                summaryWords.forEach(([word, synonyms]) => {
-                    const summaryElement = document.createElement('dl');
-                    summaryElement.classList.add('summary-word');
-                    summaryElement.innerHTML = `<dt>${word}</dt><dd><ul class="summary-list"><li>${synonyms.join('</li><li>')}</li></ul></dd>`;
-                    containerElement.appendChild(summaryElement);
-                });
-            } else {
-                containerElement.style.display = 'none';
-                containerElement.querySelectorAll('.summary-word').forEach(word => word.remove());
-            }
+            containerElement.style.display = 'flex';
+            // Outline correct and incorrect words and their synonyms as part of summary
+            seenWords.forEach(([word, synonyms, result]) => {
+                const summaryElement = document.createElement('dl');
+                summaryElement.classList.add('summary-word');
+                summaryElement.style.border = `1px solid ${result === "correct" ? "#98FB98" : "#F08080"}`;
+                summaryElement.innerHTML = `<dt>${word}</dt><dd><ul class="summary-list"><li>${synonyms.join('</li><li>')}</li></ul></dd>`;
+                containerElement.appendChild(summaryElement);
+            });
         }
 
         // Get a random word from the list
         function getRandomWord() {
-            // TODO: Avoid getting a recent selection (see summary list)
-            const index = Math.floor(Math.random() * wordSynonyms.length);
+            let index;
+            let word;
+            // Avoid reusing same word
+            do {
+                index = Math.floor(Math.random() * wordSynonyms.length);
+                word = wordSynonyms[index];
+            } while (seenWords.some(seen => seen[0] === word));
             return wordSynonyms[index];
         }
 
